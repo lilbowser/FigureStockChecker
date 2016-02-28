@@ -1,6 +1,9 @@
 import requests # pip3 install requests
 from bs4 import BeautifulSoup  # pip3 install beautifulsoup4
 import xml.etree.ElementTree as ET
+from urllib.parse import urljoin
+import time
+from chump import Application  # pip3 install chump
 
 class WebsiteData:
 
@@ -18,7 +21,7 @@ class WebsiteData:
             self._website_name = website_xml.attrib['name']
             self._base_url = website_xml.find("base_url").text
 
-            self._sub_sites = []  # type: list [SubSiteData]
+            self._sub_sites = []  # type: list[SubSiteData]
             for sub_site_xml in self._website_xml.findall('sub_site'):
                 self._sub_sites.append(SubSiteData(sub_site_xml))
 
@@ -36,7 +39,7 @@ class WebsiteData:
         """
 
         @return: Returns a list of SubSiteData
-        @rtype: list [SubSiteData]
+        @rtype: list[SubSiteData]
         """
         return self._sub_sites
     @property
@@ -65,7 +68,7 @@ class SubSiteData:
         self._figures = []
 
         for fig in self._xml.findall('figure'):
-            self._figures.append(Figure(fig))
+            self._figures.append(FigureSearchData(fig))
 
         self._scraped_figures = []
 
@@ -74,7 +77,7 @@ class SubSiteData:
         """
         A collection of figure objects
         @return: list[Figure]
-        @rtype: list[Figure]
+        @rtype: list[FigureSearchData]
         """
         return self._figures
 
@@ -144,21 +147,36 @@ class SubSiteData:
         @return:
         @rtype:
         """
-        self._scraped_figures.append(ScrapedFigure(name, link, price, picture_link))
+        self._scraped_figures.append(FigureData(name, link, price, picture_link))
 
 
 
-class ScrapedFigure:
+class FigureData:
     def __init__(self, figure_name=None, link=None, price=None, picture_link=None):
         self._figure_name = figure_name
         self._link = link
         self._price = price
         self._picture_link = picture_link
+        self._condition = None  # type: str
+
+        @property
+        def condition(self):
+            return self._condition
+
+        @condition.setter
+        def condition(self, value):
+            if self._condition is None:
+                tmp = value[value.rindex('/') + 1:]
+                # TODO: We need to move the selection of the decoder out of this class
+                self._condition = JungleDecoder.conditionDecode[tmp]
+            else:
+                raise ValueError("Can not set condition once condition has already been set.")
 
 
-class Figure:
+class FigureSearchData(FigureData):
 
     def __init__(self, figure_xml):
+        FigureData.__init__()
         self._xml = figure_xml
 
         self._figure_name = self._xml.attrib['name']
@@ -166,7 +184,6 @@ class Figure:
 
         for search_xml in self._xml.findall('search'):
             self._search_parameters.append(SearchParam(search_xml))
-
 
     @property
     def figure_name(self):
@@ -184,6 +201,24 @@ class SearchParam:
         self._xml = search_param_xml
         self.search_parameter = self._xml.text
         self.dependence = self._xml.attrib['dependence']
+
+
+class Decoder:
+
+    def condition(self, value):
+        raise NotImplementedError
+
+
+class JungleDecoder(Decoder):
+
+    conditionBase = "http://jungle-scs.co.jp/sale_en/wp-content/themes/jungle_2013en/images/"
+    conditionS = "conditionicon_s_en.gif"
+    conditionA = "conditionicon_a_en.gif"
+    conditionB = "conditionicon_b_en.gif"
+    conditionDecode = {conditionS: 'Sealed', conditionA: 'A', conditionB: 'B'}
+
+    def condition(self, value):
+        return self.conditionDecode[value]
 
 
 def scrapeSite(_url):
@@ -215,8 +250,9 @@ def scrapeSite(_url):
 
 
 
-
 if __name__ == '__main__':
+    push_app = Application("***REMOVED***")
+    push_User = push_app.get_user("***REMOVED***")
 
     tree = ET.parse('sources.xml')
     xmlData = tree.getroot()
@@ -229,26 +265,27 @@ if __name__ == '__main__':
     # Scrape all websites and convert them to soup
     for site in websites:
         if site.sub_sites is not None:
+
             for sub_site in site.sub_sites:
                 sub_site.website_data = scrapeSite(site.url + sub_site.url)
                 products_soup = []
+
                 if sub_site.website_soup is not None:
                     sub_site.product_soup = sub_site.website_soup.find(id="products")
                     sub_site.figure_soup = sub_site.product_soup.find_all('li')
-                    for figure in sub_site.figure_soup:
-                        sub_site.new_figure(name=figure.find(class_="wrapword").text,
-                                            price=figure.find(class_="price").text
 
-                                            )
-                        temp=figure.find(class_="left").find(itemprop="img")
+                    for figure in sub_site.figure_soup:
+
+                        relURL = figure.find('a').get('href')
+                        figure_link = urljoin(site.url + sub_site.url, relURL)
+                        sub_site.new_figure(name=figure.find(class_="wrapword").text,
+                                            price=figure.find(class_="price").text,
+                                            picture_link=figure.find('img')['src'],
+                                            link=figure_link)
                         print("woo")
 
 
     #Search for Items
-
-
-
-
 
     input("Press any key to exit")
 
