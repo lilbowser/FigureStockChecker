@@ -2,22 +2,29 @@
 <data>
     <website id="0" name="Jungle">
         <base_url>http://jungle-scs.co.jp</base_url>
-
         <sub_site id="0" name="New Nendoroids">
             <url>/sale_en/?page_id=116&amp;cat=313&amp;vw=nk</url>
             <figure name="Neptune Nendoroid - #378">
                 <search dependence="mandatory">378</search>
-                <search dependence="optional">neptune</search>
+                <search dependence="optional" exactly="True">neptune</search>
             </figure>
             <figure name="Magical Snow Miku - #380">
                 <search dependence="mandatory">380</search>
                 <search dependence="optional">Magical Snow</search>
                 <search dependence="optional">Miku</search>
             </figure>
+            <figure name="Izayori Sakuya #105">
+                <search dependence="mandatory">105</search>
+                <search dependence="optional">Izayori</search>
+                <search dependence="optional">Sakuya</search>
+            </figure>
         </sub_site>
         <sub_site id="1" name="New Vocaloids">
             <url>/sale_en/?page_id=116&amp;cat=383&amp;vw=nk</url>
-
+            <figure name="Hatsune Miku : Cheerful Ver.">
+                <search dependence="mandatory">Miku</search>
+                <search dependence="mandatory">Cheerful</search>
+            </figure>
         </sub_site>
 
 
@@ -26,3 +33,8 @@
 
     </website>
 </data>
+
+
+
+<!--<searcha dependence="mandatory" exactly="false" partial= 'True'>378</searcha>-->
+<!--<searcha except="True">378</searcha>-->
