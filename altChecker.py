@@ -56,12 +56,12 @@ class JungleDecoder(Decoder):
         next_page_element = paging_tags.find('span', string='Next Page»') #_class='sp04_pl20')  #.find('a').get('href')
         if next_page_element is not None:
             next_page_url = next_page_element.find('a').get('href')
-            print("getting " +next_page_url)
+            print("getting " + next_page_url)
             return next_page_url
         else:
             return None
 
-    def get_figures(self, html=None):
+    def get_figures(self, html=None, ):
 
         if html is not None and len(self._figures) < 1:
             #Only parse if html is given and the figures array is empty
@@ -137,6 +137,7 @@ class Figures:
         self._html = html
         self.decoder = Decoder(self._service)
         self.figures = self.decoder.get_figures(self._html)  # type: list[FigureData]
+
 
 class FigureData:
 

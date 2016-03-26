@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<data>
+    <website id="0" name="website name">
+        <base_url>http://example.co.jp</base_url>
+        <sub_site id="0" name="descriptive name of section">
+            <url>/sale_en/?page_id=116&amp;cat=313&amp;vw=nk</url>
+            <local>put a local html file here to load from file for debugging</local>
+            <report> //this section deals with how we alert the user of new figures
+                <matched>can be individually, grouped, or none</matched>
+                <unmatched>can be individually, grouped, or none</unmatched>
+            </report>
+            <figure name="Neptune Nendoroid - #378">
+                <search dependence="Can be 'mandatory' or 'optional'.">search parameter</search>
+                <search dependence="optional">Neptune</search>
+            </figure>
+            <figure name="Nendoroid Hoshikuzu Witch Meruru - #298">
+                <search dependence="mandatory">298</search>
+                <search dependence="optional">Hoshikuzu</search>
+                <search dependence="optional">Witch</search>
+                <search dependence="optional">Meruru</search>
+            </figure>
+        </sub_site>
+        <sub_site id="1" name="New Vocaloids">
+            <url>/sale_en/?page_id=116&amp;cat=383&amp;vw=nk</url>
+            <local>JungleHero.html</local>
+            <figure name="Hatsune Miku : Cheerful Ver.">
+                <search dependence="mandatory">Miku</search>
+                <search dependence="mandatory">Cheerful</search>
+                <search dependence="optional">Hatsune</search>
+                <search dependence="optional">Ver.</search>
+            </figure>
+        </sub_site>
+    </website>
+    <!--<website id="1" name="AmiAmi">-->
+
+    <!--</website>-->
+</data>
+
+
+<!--<searcha dependence="mandatory" exactly="false" partial= 'True'>378</searcha>-->
+<!--<searcha except="True">378</searcha>-->
