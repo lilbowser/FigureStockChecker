@@ -38,6 +38,7 @@ class WebsiteData:
         """
         self._website_xml = _website_xml
         self._website_name = "Unknown"
+        self._log = logging.getLogger(self.__class__.__name__)
         try:
             self._website_name = _website_xml.attrib['name']
             self._base_url = _website_xml.find("base_url").text
@@ -49,8 +50,7 @@ class WebsiteData:
             # for subSite in self._sub_sites:
                 # print(self._base_url + subSite.url)
         except Exception as e:
-            logging.error("Could not load data for " + self._website_name + ". Error: " + str(e))
-            logging.error(traceback.format_exc())
+            self._log.error("Could not load data for " + self._website_name + ". Error: " + str(e), exc_info=True)
             self._website_xml = None
             self._base_url = ""
             self._sub_sites = None
@@ -468,6 +468,7 @@ class JungleDecoder(Decoder):
         pass
 
     def __init__(self, service):
+        self._log = logging.getLogger(self.__class__.__name__)
         self._product_phtml = None
         self._parsed_html = None  # type: BeautifulSoup
         self._figures = []  # type: list[FigureData]
@@ -545,7 +546,7 @@ class JungleDecoder(Decoder):
 
                     if html is None:  # if we can not get the web page (probably error), do not go to next page.
                         more_figures = False
-                        logging.error("Unable to retrieve the next page.")
+                        self._log.error("Unable to retrieve the next page.")
                 else:
                     more_figures = False
 
@@ -555,7 +556,7 @@ class JungleDecoder(Decoder):
         result = re.search(re.escape(r"..."), _figure.name)
         if result is not None:
             # The entire name is not given on this page. We need  the item page to get it.
-            logging.info("need to get extended name for " + _figure.name)
+            self._log.info("need to get extended name for " + _figure.name)
             # TODO: Do not rely on outside function
             item_html = scrapeSite(_figure.link)
             if item_html is not None:
@@ -563,12 +564,12 @@ class JungleDecoder(Decoder):
                     item_soup = BeautifulSoup(item_html, 'html.parser')
                     # TODO: Consider returning the extended name and setting it in the figure so extended_name is read only
                     _figure.extended_name = item_soup.find(class_="contentstitle").text
-                    logging.info("new Name: " + _figure.extended_name)
+                    self._log.info("new Name: " + _figure.extended_name)
                 except:
-                   logging.error("Unable to retrieve item detail page. Using truncated name.")
+                    self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
 
             else:
-                logging.error("Unable to retrieve item detail page. Using truncated name.")
+                self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
 
 
 class AmiAmiPreownedDecoder(Decoder):
@@ -583,6 +584,7 @@ class AmiAmiPreownedDecoder(Decoder):
         pass
 
     def __init__(self, service):
+        self._log = logging.getLogger(self.__class__.__name__)
         self._product_phtml = None
         self._parsed_html = None
         self._figures = []  # type: list[FigureData]
@@ -609,7 +611,7 @@ class AmiAmiPreownedDecoder(Decoder):
             extended_name = re.sub(r'\(Pre-owned ITEM:(.*)\/.*?BOx:(.*)\)(?=.)', '', value, flags=re.I)
             return condition, extended_name
         except:
-            logging.error(traceback.format_exc())
+            self._log.error(traceback.format_exc())
             return condition, extended_name
 
     def _get_pages(self):
@@ -640,9 +642,10 @@ class AmiAmiPreownedDecoder(Decoder):
             got_multiple_pages = False  # Flag indicating whether we scraped one page or multiple pages
 
             while more_figures:
-                logging.info("Parsing figures from page {0}.".format(current_page))
+                self._log.info("Parsing figures from page {0}.".format(current_page))
                 self._parsed_html = BeautifulSoup(html, 'html.parser')  #  Pares the HTML into soup
                 try:
+                    # TODO: Get pages first so we can multi-thread retrieval of websites.
                     next_page_url = self._get_pages()
                     products_soup = self._parsed_html.find_all(class_="product_box")
                     # TODO: Find a better way of determining that there are no products on the page
@@ -670,9 +673,8 @@ class AmiAmiPreownedDecoder(Decoder):
                             else:
                                 tempFig.price = " "
                         except Exception as e:
-                            logging.error('re search error')
-                            logging.error(e)
-                            logging.error(traceback.format_exc())
+                            self._log.error('re search error: ', exc_info=True)
+
                         tempFig.pic_link = figure_soup.find('img')['src']
 
                         # The condition is not listed on the listing page, only the detail page.
@@ -685,9 +687,7 @@ class AmiAmiPreownedDecoder(Decoder):
                 # except requests.Timeout as e:
 
                 except Exception as e:
-                    logging.error("Parsing Amiami pre-owned HTML Failed")
-                    logging.error(e)
-                    logging.error(traceback.format_exc())
+                    self._log.error("Parsing Amiami pre-owned HTML Failed", exc_info=True)
                     # return None
                     raise FigureDataCorrupt
 
@@ -700,8 +700,8 @@ class AmiAmiPreownedDecoder(Decoder):
                     try:
                         html = scrapeSite(next_page_url)
                     except requests.Timeout or requests.Timeout as e:
-                        logging.error("Getting next Amiami pre-owned page Failed")
-                        logging.error(traceback.format_exc())
+                        self._log.error("Getting next Amiami pre-owned page Failed", exc_info=True)
+
                         raise FigureDataCorrupt
                         # return None
 
@@ -709,7 +709,7 @@ class AmiAmiPreownedDecoder(Decoder):
 
                     if html is None:  # if we can not get the web page (unknown reason), do not go to next page and invalidate results.
                         more_figures = False
-                        logging.error("Unable to retrieve the next page.")
+                        self._log.error("Unable to retrieve the next page.")
                         raise FigureDataCorrupt
                         # return None
                 else:
@@ -724,7 +724,7 @@ class AmiAmiPreownedDecoder(Decoder):
         result = None  # re.search(re.escape(r"..."), _figure.name)  # AMIAMI does not use shortened names.
         if result is not None or override is True:
             # The entire name is not given on this page. We need the item page to get it.
-            logging.info("Need to get extended name for " + _figure.name)
+            self._log.info("Need to get extended name for " + _figure.name)
             # TODO: Do not rely on outside function
 
             item_html = scrapeSite(_figure.link)
@@ -741,13 +741,11 @@ class AmiAmiPreownedDecoder(Decoder):
 
                     _figure._condition, _figure.extended_name = self._condition(_figure.extended_name)
 
-                    logging.info("New Name: " + _figure.extended_name)
+                    self._log.info("New Name: " + _figure.extended_name)
                 except Exception as e:
-                    logging.error("ERROR: Unable to retrieve item detail page. Using truncated name.")
-                    logging.error(traceback.format_exc())
+                    self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
             else:
-                logging.error("ERROR: Unable to retrieve item detail page. Using truncated name.")
-                logging.error(traceback.format_exc())
+                self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
             # We need to extract the condition data from the name.
 
     def get_condition(self, _figure):
@@ -823,8 +821,8 @@ if __name__ == '__main__':
     firstRun = True  # Switch to false to prevent pre-loading of history arrays
     get_next_pages = True  # Disable scraping the next page
     init()  # Init colorama
+    logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.WARNING)  #
 
-    logging.basicConfig(format='%(asctime)s %(message)s', filename='StockChecker.log', level=logging.WARNING)  #
     logging.warning("StockChecker.py has started")
 
     push_app = Application("***REMOVED***")
