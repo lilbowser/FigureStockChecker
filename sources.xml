@@ -7,16 +7,13 @@
             <!--<local>JungleNend.html</local>-->
             <schedule mode="frequency">
                 <!--<time>06:50:00</time>-->
-
                 <frequency>
                     <days>0</days>
                     <hours>0</hours>
                     <minutes>0</minutes>
                     <seconds>25</seconds>
                 </frequency>
-
                 <!--<frequencyAtTimePeriod enabled="False">15</frequencyAtTimePeriod>-->
-
             </schedule>
             <report>
                 <matched>individually</matched>
@@ -82,6 +79,8 @@
         <base_url>http://slist.amiami.com</base_url>
         <sub_site id="0" name="AmiAmi Pre-Owned">
             <url>/top/search/list3?s_condition_flg=1&amp;s_sortkey=preowned&amp;pagemax=200</url>
+
+            <prototype_url>/top/search/list3?s_condition_flg=1&amp;s_sortkey=preowned&amp;pagemax=200&amp;pagecnt=[PAGELINK]</prototype_url>
             <!--<local>amiami_preowned.html</local>-->
             <schedule mode="frequency">
                 <!--<time>06:50:00</time>-->

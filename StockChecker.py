@@ -9,7 +9,6 @@ import traceback
 from distutils.util import strtobool
 from datetime import time, timedelta, datetime, date
 
-
 # Pushover
 from chump import Application  # pip3 install chump
 
@@ -441,7 +440,7 @@ class Decoder:
     def _condition(self, value):
         raise NotImplementedError
 
-    def _get_pages(self):
+    def _get_next_page(self):
         """
         Scrapes the webpage for the next page URL and returns it if found. If it can not be found, return None
         @return: Next Page URL or None
@@ -477,7 +476,7 @@ class JungleDecoder(Decoder):
         tmp = value[value.rindex('/') + 1:]
         return self.conditionDecode[tmp]
 
-    def _get_pages(self):
+    def _get_next_page(self):
         """
         Scrapes the webpage for the next page URL and returns it if found. If it can not be found, return None
         @return: Next Page URL or None
@@ -506,7 +505,7 @@ class JungleDecoder(Decoder):
             while more_figures:
                 self._parsed_html = BeautifulSoup(html, 'html.parser')
                 try:
-                    next_page_url = self._get_pages()
+                    next_page_url = self._get_next_page()
                     products_soup = self._parsed_html.find(id='products')
                     # TODO: Find a better way of determining that there are no products on the page
                     if products_soup is not None:
@@ -614,7 +613,7 @@ class AmiAmiPreownedDecoder(Decoder):
             self._log.error(traceback.format_exc())
             return condition, extended_name
 
-    def _get_pages(self):
+    def _get_next_page(self, html_soup=None):
         """
         Scrapes the webpage for the next page URL and returns it if found. If it can not be found, return None
         @return: Next Page URL or None
@@ -631,9 +630,39 @@ class AmiAmiPreownedDecoder(Decoder):
                 # return None
         return None
 
+    def _get_pages(self, html_soup=None, prototype_url=None, max_page_num=False, results=False):
+        """
+        Scrapes the webpage for the next page URL and returns it if found. If it can not be found, return None
+        @return: Next Page URL or None
+        @rtype: str | None
+        """
+
+        if html_soup is not None:
+            product_tags = html_soup.find(id='products')  # .find_all('span')  # type: list[tag]
+            if product_tags is not None:
+
+                if max_page_num is False:
+                    max_page_number = 0
+                    for link in product_tags.find_all('a'):
+                        page_num = re.search(r'^\[(\d{1,2})\]$', link)
+                        if page_num is not None:
+                            page_num = page_num.group(0)
+                            if page_num > max_page_number:
+                                max_page_number = page_num
+
+                next_page_element = product_tags.find('a', string='Next>>')  # _class='sp04_pl20')  #.find('a').get('href')
+                if next_page_element is not None:
+                    next_page_url = next_page_element.get('href')
+                    return next_page_url
+                # return None
+        return None
+
     def get_figures(self, html=None, _url=None):
 
         if html is not None and len(self._figures) < 1 and _url is not None:
+
+            pages_html = [html]
+            parsed_html = []
 
             # Only parse if html is given and the figures array is empty
             more_figures = True  # Flag indicating we still have more figs to parse
@@ -641,12 +670,29 @@ class AmiAmiPreownedDecoder(Decoder):
             current_page = 1  # The current page number
             got_multiple_pages = False  # Flag indicating whether we scraped one page or multiple pages
 
+            while True:
+                parsed_html = BeautifulSoup(html, 'html.parser')
+                next_page_url = self._get_pages(parsed_html)
+
+                if next_page_url is not None:
+                    # TODO: do not rely on outside function
+                    current_page += 1
+                    sys.stdout.write('\x1b[K')  # Clear the line
+                    print("Retrieving page {}".format(current_page))
+                    sys.stdout.write('\x1b[1A')  # Move cursor up 2 lines
+                    try:
+                        html = scrapeSite(next_page_url)
+                    except requests.Timeout or requests.Timeout as e:
+                        self._log.error("Getting next Amiami pre-owned page Failed", exc_info=True)
+
+                        raise FigureDataCorrupt
+
             while more_figures:
                 self._log.info("Parsing figures from page {0}.".format(current_page))
-                self._parsed_html = BeautifulSoup(html, 'html.parser')  #  Pares the HTML into soup
+                #  Pares the HTML into soup
                 try:
                     # TODO: Get pages first so we can multi-thread retrieval of websites.
-                    next_page_url = self._get_pages()
+                    next_page_url = self._get_next_page()
                     products_soup = self._parsed_html.find_all(class_="product_box")
                     # TODO: Find a better way of determining that there are no products on the page
                     if products_soup is None:
@@ -825,8 +871,8 @@ if __name__ == '__main__':
 
     logging.warning("StockChecker.py has started")
 
-    push_app = Application("***REMOVED***")
-    push_User = push_app.get_user("***REMOVED***")
+    push_app = Application("AppKey")
+    push_User = push_app.get_user("UserKey")
 
     ver_ex = VerEx()
 
