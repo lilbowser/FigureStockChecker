@@ -197,8 +197,8 @@ class FigureData:
 
 def scrape():
 
-    push_app = Application("***REMOVED***")
-    push_User = push_app.get_user("***REMOVED***")
+    push_app = Application("")
+    push_User = push_app.get_user("")
     # message = push_User.send_message("Test MSG")
 
     sites = ["http://jungle-scs.co.jp/sale_en/?page_id=116&cat=313&vw=nk",
