@@ -862,6 +862,16 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
     return website_data
 
 
+def load_config(URI="keys.yaml"):
+    import yaml
+
+    with open(URI, 'r') as stream:
+        try:
+            _config = yaml.load(stream)
+            return _config
+        except yaml.YAMLError:
+            logging.exception("Error loading yaml config")
+
 
 if __name__ == '__main__':
     firstRun = True  # Switch to false to prevent pre-loading of history arrays
@@ -870,9 +880,9 @@ if __name__ == '__main__':
     logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.WARNING)  #
 
     logging.warning("StockChecker.py has started")
-
-    push_app = Application("AppKey")
-    push_User = push_app.get_user("UserKey")
+    push_keys = load_config()
+    push_app = Application(push_keys["AppKey"])
+    push_User = push_app.get_user(push_keys["UserKey"])
 
     ver_ex = VerEx()
 
