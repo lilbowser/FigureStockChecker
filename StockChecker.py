@@ -1,5 +1,3 @@
-import requests  # pip3 install requests
-from bs4 import BeautifulSoup  # pip3 install beautifulsoup4
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin
 import time as time_p
@@ -8,6 +6,11 @@ import sys
 import traceback
 from distutils.util import strtobool
 from datetime import time, timedelta, datetime, date
+from multiprocessing.dummy import Pool
+import pickle
+
+import requests  # pip3 install requests
+from bs4 import BeautifulSoup  # pip3 install beautifulsoup4
 
 # Pushover
 from chump import Application  # pip3 install chump
@@ -22,7 +25,6 @@ from fuzzywuzzy import fuzz  # pip3 install fuzzywuzzy
 from fuzzywuzzy import process
 
 import re
-from verbalexpressions import VerEx
 
 
 class WebsiteData:
@@ -100,6 +102,13 @@ class SubSiteData:
             self._local_uri = None
         except KeyError:
             self._local_uri = None
+
+        try:
+            self._proto_url = self._xml.find('prototype_url').text
+        except AttributeError:
+            self._proto_url = None
+        except KeyError:
+            self._proto_url = None
 
         self._sub_site_description = self._xml.attrib['name']
 
@@ -345,6 +354,7 @@ class Figures:
 
 class FigureData:
 
+
     def __init__(self, decoder, service, figure_html):
         self._service = service.lower()  # type: str
         self._decoder = decoder
@@ -358,7 +368,7 @@ class FigureData:
         self._releaseStatus = None  # type: str
         self._extended_name = None  # type: str
         self._search_url = None  # type: str # TODO: This is currently unused
-        self.TTL = 3 # type: int
+        self.TTL = 3 # type: int  # number of times the figure must be missing to remove it from data
 
     @property
     def release_status(self):
@@ -414,9 +424,6 @@ class FigureData:
         else:
             raise ValueError("Can not change condition once condition has already been set.")
 
-    def get_extended_name(self):
-        self._decoder.get_extended_name(self)
-
     @property
     def search_url(self):
         return self._search_url
@@ -424,6 +431,9 @@ class FigureData:
     @search_url.setter
     def search_url(self, value):
         self._search_url = value
+
+    def get_extended_name(self):
+        self._decoder.get_extended_name(self)
 
 
 class Decoder:
@@ -448,7 +458,7 @@ class Decoder:
         """
         raise NotImplementedError
 
-    def get_figures(self, html=None, _url=None):
+    def get_figures(self, html=None, _url=None, prototype_url=None):
         raise NotImplementedError
 
     def get_extended_name(self, _figure, override=False):
@@ -494,7 +504,7 @@ class JungleDecoder(Decoder):
 
         return None
 
-    def get_figures(self, html=None, _url=None):
+    def get_figures(self, html=None, _url=None, prototype_url=None):
 
         if html is not None and len(self._figures) < 1 and _url is not None:
 
@@ -555,7 +565,7 @@ class JungleDecoder(Decoder):
         result = re.search(re.escape(r"..."), _figure.name)
         if result is not None:
             # The entire name is not given on this page. We need  the item page to get it.
-            self._log.info("need to get extended name for " + _figure.name)
+            self._log.debug("need to get extended name for " + _figure.name)
             # TODO: Do not rely on outside function
             item_html = scrapeSite(_figure.link)
             if item_html is not None:
@@ -563,7 +573,7 @@ class JungleDecoder(Decoder):
                     item_soup = BeautifulSoup(item_html, 'html.parser')
                     # TODO: Consider returning the extended name and setting it in the figure so extended_name is read only
                     _figure.extended_name = item_soup.find(class_="contentstitle").text
-                    self._log.info("new Name: " + _figure.extended_name)
+                    self._log.debug("new Name: " + _figure.extended_name)
                 except:
                     self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
 
@@ -587,6 +597,7 @@ class AmiAmiPreownedDecoder(Decoder):
         self._product_phtml = None
         self._parsed_html = None
         self._figures = []  # type: list[FigureData]
+        self._extended_name_figures = []  # type: list[FigureData]
 
     def _condition(self, value):
         # TODO: Standardise all _condition() functions
@@ -630,40 +641,48 @@ class AmiAmiPreownedDecoder(Decoder):
                 # return None
         return None
 
-    def _get_pages(self, html_soup=None, prototype_url=None, max_page_num=False, results=False):
+    def _get_pages(self, html_soup=None, prototype_url=None, results=False):
         """
-        Scrapes the webpage for the next page URL and returns it if found. If it can not be found, return None
-        @return: Next Page URL or None
-        @rtype: str | None
+        Scrapes the webpage for the all page urls and returns them if found. If they can not be found, return None
+        @return: Next Page URLs or None
+        @rtype: list[str] | None
         """
 
         if html_soup is not None:
             product_tags = html_soup.find(id='products')  # .find_all('span')  # type: list[tag]
             if product_tags is not None:
+                max_page_num = float("-inf")
+                for link in product_tags.find_all('a'):
+                    # TODO: Add Try/Except
+                    page_num = re.search(r'\[(\d{1,2})\]$', link.text)
+                    if page_num is not None:
+                        page_num = page_num.groups()[0]
+                        try:
+                            page_num = int(page_num)
+                            if page_num > max_page_num:
+                                max_page_num = page_num
 
-                if max_page_num is False:
-                    max_page_number = 0
-                    for link in product_tags.find_all('a'):
-                        page_num = re.search(r'^\[(\d{1,2})\]$', link)
-                        if page_num is not None:
-                            page_num = page_num.group(0)
-                            if page_num > max_page_number:
-                                max_page_number = page_num
+                        except ValueError:
+                            self._log.error("Unable to get URLs in parallel. Switching to sequence mode.")
+                            return None
 
-                next_page_element = product_tags.find('a', string='Next>>')  # _class='sp04_pl20')  #.find('a').get('href')
-                if next_page_element is not None:
-                    next_page_url = next_page_element.get('href')
-                    return next_page_url
-                # return None
+                urls = []
+                # Assume we already have page one.
+                for current_page in range(2, (max_page_num + 1)):
+                    page_url = re.sub(r'-~PAGENUMBER~-', str(current_page), prototype_url)
+                    urls.append(page_url)
+
+                return urls
         return None
 
-    def get_figures(self, html=None, _url=None):
+    def get_figures(self, html=None, _url=None, prototype_url=None):
 
         if html is not None and len(self._figures) < 1 and _url is not None:
+            if prototype_url is not None:
+                return self.threaded_get_figures(html, _base_url=_url, prototype_url=prototype_url)
 
-            pages_html = [html]
-            parsed_html = []
-
+            # TODO: I think the code below is broken.....
+            self._log.warning("Executing broken code!")
             # Only parse if html is given and the figures array is empty
             more_figures = True  # Flag indicating we still have more figs to parse
             next_page_url = None  # Stores the URL for the next page. Needs to be initialized to None.
@@ -672,7 +691,7 @@ class AmiAmiPreownedDecoder(Decoder):
 
             while True:
                 parsed_html = BeautifulSoup(html, 'html.parser')
-                next_page_url = self._get_pages(parsed_html)
+                next_page_url = self._get_next_page(parsed_html)
 
                 if next_page_url is not None:
                     # TODO: do not rely on outside function
@@ -684,7 +703,6 @@ class AmiAmiPreownedDecoder(Decoder):
                         html = scrapeSite(next_page_url)
                     except requests.Timeout or requests.Timeout as e:
                         self._log.error("Getting next Amiami pre-owned page Failed", exc_info=True)
-
                         raise FigureDataCorrupt
 
             while more_figures:
@@ -765,12 +783,144 @@ class AmiAmiPreownedDecoder(Decoder):
                 pass
         return self._figures
 
+    def threaded_get_figures(self, html=None, prototype_url=None, _base_url=None):
+
+        if html is not None and len(self._figures) < 1 and prototype_url is not None:
+
+            # Get all urls for pages to scrape
+            parsed_html = [BeautifulSoup(html, 'html.parser')]
+            urls = self._get_pages(html_soup=parsed_html[0], prototype_url=prototype_url)
+            sites_html = threaded_scrape(urls)
+
+            for site in sites_html:
+                try:
+                    parsed_html.append(BeautifulSoup(site, 'html.parser'))
+                except:
+                    self._log.error("parsing html failed.", exc_info=True)
+                    raise FigureDataCorrupt
+
+            # Only parse if html is given and the figures array is empty
+            # more_figures = True  # Flag indicating we still have more figs to parse
+            # next_page_url = None  # Stores the URL for the next page. Needs to be initialized to None.
+            # current_page = 1  # The current page number
+            # got_multiple_pages = False  # Flag indicating whether we scraped one page or multiple pages
+            #
+            # while True:
+            #     parsed_html = BeautifulSoup(html, 'html.parser')
+            #     next_page_url = self._get_next_page(parsed_html)
+            #
+            #     if next_page_url is not None:
+            #         # TODO: do not rely on outside function
+            #         current_page += 1
+            #         sys.stdout.write('\x1b[K')  # Clear the line
+            #         print("Retrieving page {}".format(current_page))
+            #         sys.stdout.write('\x1b[1A')  # Move cursor up 2 lines
+            #         try:
+            #             html = scrapeSite(next_page_url)
+            #         except requests.Timeout or requests.Timeout as e:
+            #             self._log.error("Getting next Amiami pre-owned page Failed", exc_info=True)
+            #             raise FigureDataCorrupt
+
+            # while more_figures:
+            for i, site in enumerate(parsed_html):
+                self._log.info("Parsing figures from page {0}.".format(i))
+                #  Pares the HTML into soup
+                try:
+                    products_soup = site.find_all(class_="product_box")
+                    # TODO: Find a better way of determining that there are no products on the page
+                    if products_soup is None:
+                        break
+
+                    for figure_soup in products_soup:
+                        tempFig = FigureData(self, Decoder.amiami_preowned, html)  # type: FigureData
+                        tempFig.condition = ""
+
+                        tmp = figure_soup.find(class_='product_name_list')
+                        tmp2 = tmp.find('a')
+                        tempFig.link = tmp2.get('href')
+                        tempFig.name = tmp2.text  # figure_soup.find(class_='product_name_list').text  # type: str
+
+                        if tempFig.name == "":  # Occasionally, amiami is missing product titles on the listing page
+                            # self.get_extended_name(tempFig, override=True)
+                            self._extended_name_figures.append(tempFig)
+                        tempPrice = figure_soup.find(class_="product_price").text.strip()
+
+                        try:
+                            tempPrice = re.search(r'\d{1,3}?,?\d{1,3}?,?\d{1,3} JPY', tempPrice)
+                            if tempPrice is not None:
+                                tempFig.price = tempPrice.group(0)
+                            else:
+                                tempFig.price = " "
+                        except Exception as e:
+                            self._log.error('re search error: ', exc_info=True)
+
+                        tempFig.pic_link = figure_soup.find('img')['src']
+
+                        # The condition is not listed on the listing page, only the detail page.
+                        # To prevent hammering AmiAmi, we will get condition data only if the item is a match.
+
+                        if i == 0:
+                            _url = _base_url
+                        else:
+                            _url = urls[i-1]
+
+                        tempFig._search_url = _url
+
+                        self._figures.append(tempFig)
+
+                # except requests.Timeout as e:
+
+                except Exception as e:
+                    self._log.error("Parsing Amiami pre-owned HTML Failed", exc_info=True)
+                    raise FigureDataCorrupt
+
+                # if next_page_url is not None:
+                #     # TODO: do not rely on outside function
+                #     current_page += 1
+                #     sys.stdout.write('\x1b[K')  # Clear the line
+                #     print("Retrieving page {}".format(current_page))
+                #     sys.stdout.write('\x1b[1A')  # Move cursor up 2 lines
+                #     try:
+                #         html = scrapeSite(next_page_url)
+                #     except requests.Timeout or requests.Timeout as e:
+                #         self._log.error("Getting next Amiami pre-owned page Failed", exc_info=True)
+                #
+                #         raise FigureDataCorrupt
+                #         # return None
+                #
+                #     got_multiple_pages = True
+                #
+                #     if html is None:  # if we can not get the web page (unknown reason), do not go to next page and invalidate results.
+                #         more_figures = False
+                #         self._log.error("Unable to retrieve the next page.")
+                #         raise FigureDataCorrupt
+                #         # return None
+                # else:
+                #     more_figures = False
+            # if got_multiple_pages:
+            #     # sys.stdout.write('\x1b[K')  # Clear the line Retrieving page line
+            #     pass
+        self.threaded_get_extended_names(self._extended_name_figures)
+
+        return self._figures
+
+    def threaded_get_extended_names(self, _figures):
+        self._log.info("Getting extended names for {} figures.".format(len(_figures)))
+        pool = Pool(processes=30)
+        args = []
+        for figure in _figures:
+            args.append([figure, True])
+        pool.starmap(self.get_extended_name, args)
+        pool.close()
+        pool.join()
+
+        self._log.info("Got extended names")
 
     def get_extended_name(self, _figure, override=False):
         result = None  # re.search(re.escape(r"..."), _figure.name)  # AMIAMI does not use shortened names.
         if result is not None or override is True:
             # The entire name is not given on this page. We need the item page to get it.
-            self._log.info("Need to get extended name for " + _figure.name)
+            self._log.debug("Need to get extended name for " + _figure.name)
             # TODO: Do not rely on outside function
 
             item_html = scrapeSite(_figure.link)
@@ -787,7 +937,7 @@ class AmiAmiPreownedDecoder(Decoder):
 
                     _figure._condition, _figure.extended_name = self._condition(_figure.extended_name)
 
-                    self._log.info("New Name: " + _figure.extended_name)
+                    self._log.debug("New Name: " + _figure.extended_name)
                 except Exception as e:
                     self._log.error("Unable to retrieve item detail page. Using truncated name.", exc_info=True)
             else:
@@ -798,9 +948,46 @@ class AmiAmiPreownedDecoder(Decoder):
         #  Condition data is held in the extended name
         self.get_extended_name(_figure, override=True)
 
+        # add figure to list, so we can multi-thread the details.
+        # self._extended_name_figures.append(_figure)
+
 
 class FigureDataCorrupt(Exception):
     pass
+
+
+def threaded_scrape(urls, max_retries=10, fake=False):
+    """
+    A threaded version of scrape site.
+    @param urls:
+    @type urls: list[str]
+    @param max_retries:
+    @type max_retries: int
+    @return: list[str | None | requests.Response]
+    """
+    if fake is not True:
+        print("Scraping {} more pages.".format(len(urls)))
+        pool = Pool(processes=8)
+        sites = pool.map(scrapeSite, urls)
+        for site in sites:
+            if site is None:
+                logging.error("Unable to retrieve the next page.")
+                pool.close()
+                pool.join()
+                raise FigureDataCorrupt
+        pool.close()
+        pool.join()
+        return sites
+
+    else:
+        sites = []
+        for url in urls:
+            site = scrapeSite(url, retry=max_retries)
+            if site is None:
+                logging.error("Unable to retrieve the next page.")
+                raise FigureDataCorrupt
+            sites.append(site)
+        return sites
 
 
 def scrapeSite(_url, use_progress_bar=False, retry=10):
@@ -816,7 +1003,7 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
     @rtype: str | None | requests.Response
     """
 
-    logging.info("Scraping " + _url)
+    logging.debug("Scraping " + _url)
     try:
         website = requests.get(_url)
     except requests.Timeout as e:
@@ -843,7 +1030,7 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
 
         if retry > 0:
             logging.warning("Retry #{}".format(11 - retry))
-            time_p.sleep(0.25 * (11 - retry))
+            time_p.sleep(0.33 * (11 - retry))
             retry_scrape = scrapeSite(_url, retry=(retry - 1))
             try:
                 data = retry_scrape.text
@@ -862,10 +1049,9 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
     return website_data
 
 
-def load_config(URI="keys.yaml"):
+def load_config(uri="keys.yaml"):
     import yaml
-
-    with open(URI, 'r') as stream:
+    with open(uri, 'r') as stream:
         try:
             _config = yaml.load(stream)
             return _config
@@ -873,18 +1059,40 @@ def load_config(URI="keys.yaml"):
             logging.exception("Error loading yaml config")
 
 
+def save_figures(figures, base_uri="pickled_figs"):
+    """
+
+    @param figures:
+    @type figures: list[FigureData]
+    @param base_uri:
+    @return:
+    """
+    uri_postfix = figures[0]._service
+    uri = base_uri + uri_postfix + ".pickle"
+    with open(uri, 'wb') as handle:
+        pickle.dump(figures, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_figures(service, base_uri="pickled_figs"):
+    uri_postfix = service
+    uri = base_uri + uri_postfix + ".pickle"
+    with open(uri, 'rb') as handle:
+        figures = pickle.load(handle)
+    return figures
+
+
 if __name__ == '__main__':
     firstRun = True  # Switch to false to prevent pre-loading of history arrays
     get_next_pages = True  # Disable scraping the next page
     init()  # Init colorama
-    logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.WARNING)  #
-
+    # logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.WARNING)  #
+    logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s",
+                        level=logging.INFO)  #
+    logging.getLogger("requests").setLevel(logging.WARNING)
     logging.warning("StockChecker.py has started")
     push_keys = load_config()
     push_app = Application(push_keys["AppKey"])
     push_User = push_app.get_user(push_keys["UserKey"])
-
-    ver_ex = VerEx()
 
     tree = ET.parse('sources.xml')
     xmlData = tree.getroot()
@@ -928,7 +1136,8 @@ if __name__ == '__main__':
                         sub_site.website_html = scrapeSite(url)
                     try:
                         # TODO: call sub_site.figures = Decoder(service).get_figures(site.website_name, sub_site.website_html, url)
-                        sub_site.figures = Figures(site.website_name, sub_site.website_html, url).figures
+                        # sub_site.figures = Figures(site.website_name, sub_site.website_html, url).figures
+                        sub_site.figures = Decoder(site.website_name).get_figures(sub_site.website_html, url, prototype_url=site.url + sub_site._proto_url)
                         sub_site.discovered_figures = []  # Clear the array
                     except FigureDataCorrupt:
                         if firstRun:
@@ -939,9 +1148,10 @@ if __name__ == '__main__':
                         # print("Number of figures: " + str(len(figures)))
 
                         # New Figure Detection
-                        for figure in sub_site.figures:
+                        for i, figure in enumerate(sub_site.figures):
                             figNew = True
-                            for oldFigure in sub_site.old_figures:
+                            logging.debug("Processing New fig detection. Fig {}".format(i))
+                            for j, oldFigure in enumerate(sub_site.old_figures):
                                 if oldFigure.name == figure.name:
                                     figNew = False
 
@@ -950,9 +1160,10 @@ if __name__ == '__main__':
                                 sub_site.discovered_figures.append(figure)
 
                         # Deleted Figure Detection
-                        for oldFigure in sub_site.old_figures:
+                        for i, oldFigure in enumerate(sub_site.old_figures):
                             figDeleted = True
-                            for figure in sub_site.figures:
+                            logging.debug("Processing Del fig detection. Fig {}".format(i))
+                            for j, figure in enumerate(sub_site.figures):
                                 if oldFigure.name == figure.name:
                                     figDeleted = False
 
