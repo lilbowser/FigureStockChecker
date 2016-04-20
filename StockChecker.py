@@ -823,14 +823,15 @@ class AmiAmiPreownedDecoder(Decoder):
 
             # while more_figures:
             for i, site in enumerate(parsed_html):
-                self._log.info("Parsing figures from page {0}.".format(i))
+                self._log.info("Parsing figures from page {0}.".format(i+1))
                 #  Pares the HTML into soup
                 try:
                     products_soup = site.find_all(class_="product_box")
                     # TODO: Find a better way of determining that there are no products on the page
                     if products_soup is None:
-                        break
-
+                        # break
+                        self._log.error("Parsing Amiami pre-owned HTML Failed", exc_info=True)
+                        raise FigureDataCorrupt
                     for figure_soup in products_soup:
                         tempFig = FigureData(self, Decoder.amiami_preowned, html)  # type: FigureData
                         tempFig.condition = ""
@@ -1007,10 +1008,7 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
     try:
         website = requests.get(_url)
     except requests.Timeout as e:
-        logging.error(e)
-        logging.error(traceback.format_exc())
         website = None
-
         if retry > 0:
             logging.warning("Retry #{}".format(11 - retry))
             time_p.sleep(0.25 * (11 - retry))
@@ -1021,10 +1019,9 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
                 data = retry_scrape
             return data
         else:
+            logging.error(traceback.format_exc())
             raise requests.Timeout
     except Exception as error:
-        logging.error(error)
-        logging.error(traceback.format_exc())
         website = None
         # printTKMSG("Uncaught Exception in scrapePlex", traceback.format_exc())
 
@@ -1036,9 +1033,9 @@ def scrapeSite(_url, use_progress_bar=False, retry=10):
                 data = retry_scrape.text
             except:
                 data = retry_scrape
-
             return data
         else:
+            logging.error(traceback.format_exc())
             raise requests.RequestException
 
     if website is not None:
@@ -1085,11 +1082,12 @@ if __name__ == '__main__':
     firstRun = True  # Switch to false to prevent pre-loading of history arrays
     get_next_pages = True  # Disable scraping the next page
     init()  # Init colorama
-    # logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.WARNING)  #
-    logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s",
-                        level=logging.INFO)  #
+    logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s", filename='StockChecker.log', level=logging.INFO)  #
+    # logging.basicConfig(format="[%(asctime)s] %(name)s: %(funcName)s:%(lineno)d %(levelname)s: %(message)s",
+    #                     level=logging.INFO)  #
+
     logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.warning("StockChecker.py has started")
+    logging.info("StockChecker.py has started")
     push_keys = load_config()
     push_app = Application(push_keys["AppKey"])
     push_User = push_app.get_user(push_keys["UserKey"])
@@ -1129,6 +1127,7 @@ if __name__ == '__main__':
                     sys.stdout.write('\x1b[1A')  # Move cursor up 1 lines
                     sys.stdout.write('\x1b[K')  # Clear the line
                     print("Scraping " + sub_site.description + "... Scrape# " + str(count))
+                    logging.info("Scraping " + sub_site.description + "... Scrape# " + str(count))
 
                     if sub_site.local_uri is not None:
                         sub_site.website_html = open(sub_site.local_uri, 'r', encoding='UTF8').read()
@@ -1137,7 +1136,8 @@ if __name__ == '__main__':
                     try:
                         # TODO: call sub_site.figures = Decoder(service).get_figures(site.website_name, sub_site.website_html, url)
                         # sub_site.figures = Figures(site.website_name, sub_site.website_html, url).figures
-                        sub_site.figures = Decoder(site.website_name).get_figures(sub_site.website_html, url, prototype_url=site.url + sub_site._proto_url)
+                        proto_url = site.url + sub_site._proto_url if sub_site._proto_url is not None else None
+                        sub_site.figures = Decoder(site.website_name).get_figures(sub_site.website_html, url, prototype_url=proto_url)
                         sub_site.discovered_figures = []  # Clear the array
                     except FigureDataCorrupt:
                         if firstRun:
@@ -1146,7 +1146,7 @@ if __name__ == '__main__':
                         continue  # continue on with the next subsite
                     if firstRun is False:  # if this is not the first time running, Search for different figures.
                         # print("Number of figures: " + str(len(figures)))
-
+                        logging.info("{} figures scraped, {} figures in DB".format(len(sub_site.figures), len(sub_site.old_figures)))
                         # New Figure Detection
                         for i, figure in enumerate(sub_site.figures):
                             figNew = True
@@ -1158,6 +1158,10 @@ if __name__ == '__main__':
                             if figNew:
                                 figure.get_extended_name()
                                 sub_site.discovered_figures.append(figure)
+                                # for del_fig in sub_site.deleted_figures:
+                                #     if figure.name == del_fig.name:
+                                #         sub_site.deleted_figures.remove(del_fig)
+                                #         logging.info("Deleted Fig Readded: {} @ {}".format())
 
                         # Deleted Figure Detection
                         for i, oldFigure in enumerate(sub_site.old_figures):
@@ -1168,15 +1172,24 @@ if __name__ == '__main__':
                                     figDeleted = False
 
                             if figDeleted:
+
                                 if oldFigure.TTL > 0:
                                     # only re-store the figure if the time to live has not reached 0
+                                    oldFigure.TTL -= 1
+                                    # add the figure to the figures list so it will be there to compare against next time.
+                                    sub_site.figures.append(oldFigure)
+                                    logging.warning("TTL Reduced: {}, Figure: {} @ {} ".format(oldFigure.TTL,
+                                                                                              oldFigure.name,
+                                                                                                sub_site.description))
 
+                                else:
                                     logging.info("Figure: {} @ {} was deleted. TTL: {}".format(oldFigure.name,
                                                                                                sub_site.description,
-                                                                                               oldFigure.name))
-                                    oldFigure.TTL -= 1
+                                                                                               oldFigure.TTL))
+
+                                    # Add it to deleted figures liat (not used yet.)
                                     sub_site.deleted_figures.append(oldFigure)
-                                    sub_site.figures.append(oldFigure)
+
 
                                 # logging.info("Figure " + figure.extended_name + " is new!")
 
@@ -1195,6 +1208,7 @@ if __name__ == '__main__':
         firstRun = False  # We have scraped once and the arrays have been pre-loaded. Flip firstRun flag to
         #                   enable scanning.
 
+        # Send out alerts for new figures.
         for site in websites:
             if site.sub_sites is not None:
                 for sub_site in site.sub_sites:
@@ -1320,7 +1334,7 @@ if __name__ == '__main__':
                 sys.stdout.write('\x1b[K')  # Clear the line
                 print("{0:1.0f} Hours, {1:1.0f} Minutes, and {2:1.0f} Seconds left until the next update."
                       .format(hours, minutes, seconds))
-                time_p.sleep(1)
+                time_p.sleep(10)
 
     input("Press any key to exit")
 

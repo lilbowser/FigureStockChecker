@@ -1,59 +1,59 @@
 <?xml version="1.0"?>
 <data>
-    <!--<website id="0" name="Jungle">-->
-        <!--<base_url>http://jungle-scs.co.jp</base_url>-->
-        <!--<sub_site id="0" name="New Nendoroids">-->
-            <!--<url>/sale_en/?page_id=116&amp;cat=313&amp;vw=nk</url>-->
-            <!--&lt;!&ndash;<local>JungleNend.html</local>&ndash;&gt;-->
-            <!--<schedule mode="frequency">-->
-                <!--&lt;!&ndash;<time>06:50:00</time>&ndash;&gt;-->
-                <!--<frequency>-->
-                    <!--<days>0</days>-->
-                    <!--<hours>0</hours>-->
-                    <!--<minutes>0</minutes>-->
-                    <!--<seconds>25</seconds>-->
-                <!--</frequency>-->
-                <!--&lt;!&ndash;<frequencyAtTimePeriod enabled="False">15</frequencyAtTimePeriod>&ndash;&gt;-->
-            <!--</schedule>-->
-            <!--<report>-->
-                <!--<matched>individually</matched>-->
-                <!--<unmatched>group</unmatched>-->
-            <!--</report>-->
-            <!--<figure name="Neptune Nendoroid - #378">-->
-                <!--<search dependence="mandatory">378</search>-->
-                <!--<search dependence="optional">Neptune</search>-->
+    <website id="0" name="Jungle">
+        <base_url>http://jungle-scs.co.jp</base_url>
+        <sub_site id="0" name="New Nendoroids">
+            <url>/sale_en/?page_id=116&amp;cat=313&amp;vw=nk</url>
+            <!--<local>test_pages/JungleNend.html</local>-->
+            <schedule mode="frequency">
+                <!--<time>06:50:00</time>-->
+                <frequency>
+                    <days>0</days>
+                    <hours>0</hours>
+                    <minutes>5</minutes>
+                    <seconds>0</seconds>
+                </frequency>
+                <!--<frequencyAtTimePeriod enabled="False">15</frequencyAtTimePeriod>-->
+            </schedule>
+            <report>
+                <matched>individually</matched>
+                <unmatched>group</unmatched>
+            </report>
+            <figure name="Neptune Nendoroid - #378">
+                <search dependence="mandatory">378</search>
+                <search dependence="optional">Neptune</search>
+            </figure>
+            <!--<figure name="519">-->
+                <!--<search dependence="mandatory">519</search>-->
+                <!--<search dependence="optional">Nendoroid Angela Balzac</search>-->
             <!--</figure>-->
-            <!--&lt;!&ndash;<figure name="519">&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="mandatory">519</search>&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="optional">Nendoroid Angela Balzac</search>&ndash;&gt;-->
-            <!--&lt;!&ndash;</figure>&ndash;&gt;-->
-            <!--&lt;!&ndash;<figure name="448">&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="mandatory">448</search>&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="optional">Nendoroid Hatsune Miku Halloween Ver.</search>&ndash;&gt;-->
-            <!--&lt;!&ndash;</figure>&ndash;&gt;-->
-            <!--<figure name="Nendoroid Hoshikuzu Witch Meruru - #298">-->
-                <!--<search dependence="mandatory">298</search>-->
-                <!--<search dependence="optional">Hoshikuzu</search>-->
-                <!--<search dependence="optional">Witch</search>-->
-                <!--<search dependence="optional">Meruru</search>-->
+            <!--<figure name="448">-->
+                <!--<search dependence="mandatory">448</search>-->
+                <!--<search dependence="optional">Nendoroid Hatsune Miku Halloween Ver.</search>-->
             <!--</figure>-->
-            <!--&lt;!&ndash;<figure name="Nendoroid Kirino Kousaka - #142">&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="mandatory">142</search>&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="optional">Kirino</search>&ndash;&gt;-->
-                <!--&lt;!&ndash;<search dependence="optional">Kousaka</search>&ndash;&gt;-->
-            <!--&lt;!&ndash;</figure>&ndash;&gt;-->
-            <!--<figure name="Nendoroid Snow Miku: Magical Snow Ver.380">-->
-                <!--<search dependence="mandatory">380</search>-->
-                <!--<search dependence="optional">Snow Miku Magical Snow</search>-->
+            <figure name="Nendoroid Hoshikuzu Witch Meruru - #298">
+                <search dependence="mandatory">298</search>
+                <search dependence="optional">Hoshikuzu</search>
+                <search dependence="optional">Witch</search>
+                <search dependence="optional">Meruru</search>
+            </figure>
+            <!--<figure name="Nendoroid Kirino Kousaka - #142">-->
+                <!--<search dependence="mandatory">142</search>-->
+                <!--<search dependence="optional">Kirino</search>-->
+                <!--<search dependence="optional">Kousaka</search>-->
             <!--</figure>-->
-        <!--</sub_site>-->
-        <!--<sub_site id="1" name="New Vocaloids">-->
-            <!--<url>/sale_en/?page_id=116&amp;cat=383&amp;vw=nk</url>-->
-            <!--&lt;!&ndash;<local>JungleHero.html</local>&ndash;&gt;-->
-            <!--<report>-->
-                <!--<matched>individually</matched>-->
-                <!--<unmatched>group</unmatched>-->
-            <!--</report>-->
+            <figure name="Nendoroid Snow Miku: Magical Snow Ver.380">
+                <search dependence="mandatory">380</search>
+                <search dependence="optional">Snow Miku Magical Snow</search>
+            </figure>
+        </sub_site>
+        <sub_site id="1" name="New Vocaloids">
+            <url>/sale_en/?page_id=116&amp;cat=383&amp;vw=nk</url>
+            <!--<local>JungleHero.html</local>-->
+            <report>
+                <matched>individually</matched>
+                <unmatched>group</unmatched>
+            </report>
             <!--<schedule mode="frequency">-->
                 <!--&lt;!&ndash;<time>06:50:00</time>&ndash;&gt;-->
 
@@ -67,14 +67,16 @@
                 <!--&lt;!&ndash;<frequencyAtTimePeriod enabled="False">15</frequencyAtTimePeriod>&ndash;&gt;-->
 
             <!--</schedule>-->
-            <!--<figure name="Hatsune Miku : Cheerful Ver.">-->
-                <!--<search dependence="mandatory">Miku</search>-->
-                <!--<search dependence="mandatory">Cheerful</search>-->
-                <!--<search dependence="optional">Hatsune</search>-->
-                <!--<search dependence="optional">Ver.</search>-->
-            <!--</figure>-->
-        <!--</sub_site>-->
-    <!--</website>-->
+            <figure name="Hatsune Miku : Cheerful Ver.">
+                <search dependence="mandatory">Miku</search>
+                <search dependence="mandatory">Cheerful</search>
+                <search dependence="optional">Hatsune</search>
+                <search dependence="optional">Ver.</search>
+            </figure>
+        </sub_site>
+    </website>
+
+
     <website id="1" name="amiami_preowned">
         <base_url>http://slist.amiami.com</base_url>
         <sub_site id="0" name="AmiAmi Pre-Owned">
@@ -87,8 +89,8 @@
                 <frequency>
                     <days>0</days>
                     <hours>0</hours>
-                    <minutes>0</minutes>
-                    <seconds>30</seconds>
+                    <minutes>5</minutes>
+                    <seconds>0</seconds>
                 </frequency>
 
                 <!--<frequencyAtTimePeriod enabled="False">15</frequencyAtTimePeriod>-->
