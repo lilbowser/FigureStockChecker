@@ -19,6 +19,7 @@
                 <matched>individually</matched>
                 <unmatched>group</unmatched>
             </report>
+            <confidence>60</confidence>
             <figure name="Neptune Nendoroid - #378">
                 <search dependence="mandatory">378</search>
                 <search dependence="optional">Neptune</search>
@@ -54,6 +55,7 @@
                 <matched>individually</matched>
                 <unmatched>group</unmatched>
             </report>
+            <confidence>60</confidence>
             <!--<schedule mode="frequency">-->
                 <!--&lt;!&ndash;<time>06:50:00</time>&ndash;&gt;-->
 
@@ -101,6 +103,7 @@
                 <matched>individually</matched>
                 <unmatched>group</unmatched>
             </report>
+            <confidence>70</confidence>
             <figure name="Neptune Nendoroid - #378">
                 <search dependence="mandatory">Nendoroid</search>
                 <search dependence="mandatory">Neptune</search>

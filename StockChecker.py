@@ -110,6 +110,16 @@ class SubSiteData:
         except KeyError:
             self._proto_url = None
 
+        try:
+            self.match_confidence = float(self._xml.attrib['name'])
+        except AttributeError:
+            self.match_confidence = 60
+        except KeyError:
+            self.match_confidence = 60
+        except ValueError:
+            self.match_confidence = 60
+
+
         self._sub_site_description = self._xml.attrib['name']
 
         self.website_html = None
@@ -125,6 +135,9 @@ class SubSiteData:
 
         self.frequency, self.time = self.parse_schedule()
         self.matched_reporting, self.unmatched_reporting = self.parse_reporting()
+
+
+
 
 
     @property
@@ -319,7 +332,9 @@ class SearchParams:
             #     self.regex_search = param.regEx_string
             # else:
             #     self.regex_search += "|" + param.regEx_string
-        result = fuzz.token_set_ratio(self.fuzzy_search, _figure.extended_name)
+        # result = fuzz.token_set_ratio(self.fuzzy_search, _figure.extended_name)
+        result = fuzz.ratio(self.fuzzy_search, _figure.extended_name)
+
         if result > confidence:
             # Initial match
             for param in self._search_parameters:
