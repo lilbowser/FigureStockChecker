@@ -119,7 +119,6 @@ class SubSiteData:
         except ValueError:
             self.match_confidence = 60
 
-
         self._sub_site_description = self._xml.attrib['name']
 
         self.website_html = None
@@ -1237,12 +1236,9 @@ if __name__ == '__main__':
                         fig_found = False
 
                         for search_data in sub_site.figure_search_data:
-                            fig_found, reported_confidence = search_data.search(figure, 60)
-                            # if search_data.tester.match(figure.name):
-                            #     print("we matched " + figure.name)
-                            #     break
-                            # result = fuzz.token_set_ratio(searchString, figure.name)
-                            # if result > 40:
+                            fig_found, reported_confidence = search_data.search(figure, sub_site.match_confidence)
+                            if not fig_found and reported_confidence > (sub_site.match_confidence - 10):
+                                logging.info("Confidence: {} for {}".format(reported_confidence, figure.extended_name))
                             if fig_found:
                                 found_fig_count += 1
                                 if sub_site.matched_reporting == "individually":
