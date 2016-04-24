@@ -321,7 +321,7 @@ class SearchParams:
                 self.fuzzy_search += param.search_parameter + " "
 
                 if param.dependence == "mandatory":
-                    # TODO: I do not think I am supposed to use escape likethis
+                    # TODO: I do not think I am supposed to use escape like this. (what did I mean by that?)
                     if param.exactly:
                         param.regEx_string = r'\b' + re.escape(param.search_parameter) + r'\b'
                     else:
@@ -332,7 +332,14 @@ class SearchParams:
             # else:
             #     self.regex_search += "|" + param.regEx_string
         # result = fuzz.token_set_ratio(self.fuzzy_search, _figure.extended_name)
-        result = fuzz.ratio(self.fuzzy_search, _figure.extended_name)
+        length_ratio = len(_figure.extended_name.split())/len(self.fuzzy_search.split())
+        if length_ratio > 1.5 or length_ratio < 0.5:
+            # The name is too long or too short to match using standard ratio, use Token Set instead.
+            result = fuzz.token_set_ratio(self.fuzzy_search, _figure.extended_name)
+            method = "token_set"
+        else:
+            result = fuzz.ratio(self.fuzzy_search, _figure.extended_name)
+            method = "ratio"
 
         if result > confidence:
             # Initial match
@@ -341,9 +348,9 @@ class SearchParams:
                     # if any of the mandatory strings are not found, return false
                     return False, result
         else:
-            return False, result
+            return False, result, method
 
-        return True, result
+        return True, result, method
 
 
 class Figures:
@@ -1154,6 +1161,7 @@ if __name__ == '__main__':
                         sub_site.figures = Decoder(site.website_name).get_figures(sub_site.website_html, url, prototype_url=proto_url)
                         sub_site.discovered_figures = []  # Clear the array
                     except FigureDataCorrupt:
+                        logging.warning("Figure data is corrupt for {}".format(sub_site.description))
                         if firstRun:
                             raise RuntimeError(
                                     "FATAL ERROR: Figure data was corrupt on the first run. Can not continue.")
@@ -1236,9 +1244,11 @@ if __name__ == '__main__':
                         fig_found = False
 
                         for search_data in sub_site.figure_search_data:
-                            fig_found, reported_confidence = search_data.search(figure, sub_site.match_confidence)
-                            if not fig_found and reported_confidence > (sub_site.match_confidence - 10):
-                                logging.info("Confidence: {} for {}".format(reported_confidence, figure.extended_name))
+                            fig_found, reported_confidence, match_type = search_data.search(figure, sub_site.match_confidence)
+
+                            if not fig_found and reported_confidence > (sub_site.match_confidence - 20):
+                                logging.info("Confidence: {} using {} for {}".
+                                             format(reported_confidence, match_type, figure.extended_name))
                             if fig_found:
                                 found_fig_count += 1
                                 if sub_site.matched_reporting == "individually":
@@ -1251,9 +1261,10 @@ if __name__ == '__main__':
                                         url_title="Picture",
                                         priority=2
                                         )
-                                    logging.warning("Matched figure " + figure.extended_name + " with " +
-                                                    str(reported_confidence) + "% confidence against " +
-                                                    search_data.fuzzy_search)
+
+                                    logging.warning("Matched figure {} using {} with {} % confidence against {}.".format(
+                                        figure.extended_name, match_type, reported_confidence, search_data.fuzzy_search))
+
                                 elif sub_site.matched_reporting == "group":
                                     tmp_msg = "" + '<a href="' + figure.link + '">' + figure.extended_name + '</a>' + "\n"
                                     if (len(push_msgs[num_of_msgs]) + len(tmp_msg)) > 1023:
